@@ -14,6 +14,49 @@ dotenv.config();
 // Initialize the logger
 const logger = Logger.forComponent('Main');
 
+/** Generate a simple HTML report */
+function generateHtmlReport(result: {
+    metadata: any;
+    modules: ReturnType<TerraformParser['parseModules']>;
+    summary: Record<string, { count: number; versions: Record<string, number> }>;
+}): string {
+    const { metadata, modules, summary } = result;
+    const rows = modules.map(m =>
+        `<tr><td>${m.name}</td><td>${m.source}</td><td>${m.version || ''}</td><td>${m.repository}</td><td>${m.filePath}</td><td><a href="${m.fileUrl}#L${m.lineNumber}">${m.lineNumber}</a></td></tr>`
+    ).join('');
+    const summaryItems = Object.entries(summary)
+        .map(([src, info]) => `<li>${src} - ${info.count} use${info.count === 1 ? '' : 's'}</li>`)
+        .join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terraform Module Report</title>
+    <style>
+        body{font-family:Arial,Helvetica,sans-serif;margin:1em;}
+        table{border-collapse:collapse;width:100%;}
+        th,td{border:1px solid #ccc;padding:4px;}
+        th{background:#eee;}
+    </style>
+</head>
+<body>
+    <h1>Terraform Module Usage Report</h1>
+    <p><strong>Owner:</strong> ${metadata.owner}</p>
+    <p><strong>Repository:</strong> ${metadata.repository}</p>
+    <p><strong>Modules found:</strong> ${metadata.moduleCount}</p>
+    <p><strong>Files analyzed:</strong> ${metadata.fileCount}</p>
+    <h2>Modules</h2>
+    <table>
+        <thead><tr><th>Name</th><th>Source</th><th>Version</th><th>Repository</th><th>File</th><th>Line</th></tr></thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <h2>Summary</h2>
+    <ul>${summaryItems}</ul>
+</body>
+</html>`;
+}
+
 /**
  * Set up command line interface
  */
@@ -27,7 +70,7 @@ program
     .description('Scan and analyze Terraform modules in GitHub repositories')
     .requiredOption('--org <organization>', 'GitHub organization or user name')
     .option('--repo <repository>', 'Specific repository name (if not provided, will search the entire organization)')
-    .option('--format <format>', 'Output format: json, csv, or table (default: table)', 'table')
+    .option('--format <format>', 'Output format: json, csv, table, or html (default: table)', 'table')
     .option('--output <filepath>', 'Export results to specified file')
     .option('--debug', 'Enable debug logging')
     .option('--max-repos <number>', 'Maximum number of repositories to process')
@@ -117,6 +160,10 @@ program
                             const githubLink = `${m.fileUrl}#L${m.lineNumber}`;
                             return `"${m.source}","${m.sourceType}","${m.version || ''}","${m.repository}","${m.filePath}",${m.lineNumber},"${githubLink}"`;
                         }).join('\n');
+                    break;
+                case 'html':
+                case 'web':
+                    outputData = generateHtmlReport(result);
                     break;
                 case 'table':
                 default:

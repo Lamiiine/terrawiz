@@ -70,7 +70,7 @@ terrawiz scan --org <organization> [options]
 
 - `--org <organization>`: **Required**. GitHub organization or user name
 - `--repo <repository>`: Specific repository name (if not provided, will search the entire organization)
-- `--format <format>`: Output format: json, csv, or table (default: table)
+- `--format <format>`: Output format: json, csv, table, or html (default: table)
 - `--output <filepath>`: Export results to specified file
 - `--debug`: Enable debug logging
 - `--max-repos <number>`: Maximum number of repositories to process
@@ -87,6 +87,11 @@ terrawiz scan --org myorg
 Scan an entire organization and export results to CSV:
 ```bash
 terrawiz scan --org myorg --format csv --output terraform-modules.csv
+```
+
+Generate an HTML report:
+```bash
+terrawiz scan --org myorg --format html --output report.html
 ```
 
 Search a specific repository and export as JSON:
@@ -131,6 +136,9 @@ Displays a human-readable summary with:
 - Version distribution
 - Source type statistics
 - Rate limit status
+
+### HTML Format
+Generates a self-contained web page with a table of modules and summary statistics.
 
 ## Technical Details
 

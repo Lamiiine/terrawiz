@@ -428,15 +428,26 @@ export class GitHubService {
             const terraformFiles: TerraformFile[] = [];
             let processedCount = 0;
 
-            for (const repository of repositories) {
-                processedCount++;
-                this.logger.info(`Processing repository ${processedCount}/${repositories.length}: ${repository.fullName}`);
+            const batchSize = 5; // limit concurrent requests
+            for (let i = 0; i < repositories.length; i += batchSize) {
+                const batch = repositories.slice(i, i + batchSize);
+                const batchResults = await Promise.all(batch.map(async (repository, idx) => {
+                    const repoIndex = i + idx + 1;
+                    this.logger.info(`Processing repository ${repoIndex}/${repositories.length}: ${repository.fullName}`);
+                    try {
+                        const files = await this.getTerraformFilesFromRepo(repository);
+                        return { files, repoIndex };
+                    } catch (error) {
+                        this.logger.errorWithStack(`Error processing repository ${repository.fullName}`, error as Error);
+                        return { files: [], repoIndex };
+                    }
+                }));
 
-                const files = await this.getTerraformFilesFromRepo(repository);
-                terraformFiles.push(...files);
-
-                // Show a summary of our progress so far
-                this.logger.info(`Progress: ${processedCount}/${repositories.length} repositories processed, ${terraformFiles.length} Terraform files found so far`);
+                for (const result of batchResults) {
+                    terraformFiles.push(...result.files);
+                    processedCount++;
+                    this.logger.info(`Progress: ${processedCount}/${repositories.length} repositories processed, ${terraformFiles.length} Terraform files found so far`);
+                }
             }
 
             this.logger.info(`Found a total of ${terraformFiles.length} Terraform files across ${repositories.length} repositories`);
